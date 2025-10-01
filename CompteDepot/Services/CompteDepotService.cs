@@ -85,7 +85,7 @@ namespace CompteDepot.Services
                 int jours = (opDate - dateCourante).Days;
                 if (jours > 0)
                 {
-                    interetsTotaux += solde * tauxAnnuel * (jours / 365m);
+                    interetsTotaux += solde * (tauxAnnuel / 100m) * (jours / 365m);
                 }
 
                 if (op.IdTypeOperationNavigation.CodeOperation == "DEPOT")
@@ -99,7 +99,7 @@ namespace CompteDepot.Services
             int joursRestants = (date - dateCourante).Days;
             if (joursRestants > 0)
             {
-                interetsTotaux += solde * tauxAnnuel * (joursRestants / 365m);
+                interetsTotaux += solde * (tauxAnnuel / 100m) * (joursRestants / 365m);
             }
 
             return interetsTotaux;
@@ -140,7 +140,7 @@ namespace CompteDepot.Services
                 int jours = (opDate - dateCourante).Days;
                 if (jours > 0)
                 {
-                    interetsTotaux += solde * tauxAnnuel * (jours / 365m);
+                    interetsTotaux += solde * (tauxAnnuel / 100m) * (jours / 365m);
                 }
 
                 if (op.IdTypeOperationNavigation.CodeOperation == "DEPOT")
@@ -154,7 +154,7 @@ namespace CompteDepot.Services
             int joursRestants = (date - dateCourante).Days;
             if (joursRestants > 0)
             {
-                interetsTotaux += solde * tauxAnnuel * (joursRestants / 365m);
+                interetsTotaux += solde * (tauxAnnuel / 100m) * (joursRestants / 365m);
             }
 
             return solde + interetsTotaux;
@@ -251,7 +251,7 @@ namespace CompteDepot.Services
                 int jours = (opDate - dateCourante).Days;
                 if (jours > 0)
                 {
-                    interetsTotaux += soldeCourant * tauxAnnuel * (jours / 365m);
+                    interetsTotaux += soldeCourant * (tauxAnnuel / 100m) * (jours / 365m);
                 }
 
                 if (op.IdTypeOperationNavigation.CodeOperation == "DEPOT")
@@ -265,7 +265,7 @@ namespace CompteDepot.Services
             int joursRestants = (dateFin - dateCourante).Days;
             if (joursRestants > 0)
             {
-                interetsTotaux += soldeCourant * tauxAnnuel * (joursRestants / 365m);
+                interetsTotaux += soldeCourant * (tauxAnnuel / 100m) * (joursRestants / 365m);
             }
 
             return interetsTotaux;

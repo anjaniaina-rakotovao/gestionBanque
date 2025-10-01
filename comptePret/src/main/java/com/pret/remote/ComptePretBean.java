@@ -2,6 +2,8 @@ package com.pret.remote;
 
 import javax.ejb.Stateless;
 import javax.persistence.*;
+
+import com.pret.entity.TypeCompte;
 import com.pret.entity.*;
 import java.util.Date;
 import java.util.List;
@@ -28,8 +30,8 @@ public class ComptePretBean implements ComptePretRemote {
         em.persist(pret);
 
         TypeOperation typeOperation = em.createQuery(
-                        "SELECT tp FROM TypeOperation tp WHERE tp.codeOperation = :code",
-                        TypeOperation.class)
+                "SELECT tp FROM TypeOperation tp WHERE tp.codeOperation = :code",
+                TypeOperation.class)
                 .setParameter("code", "CREDIT")
                 .getSingleResult();
 
@@ -51,8 +53,8 @@ public class ComptePretBean implements ComptePretRemote {
 
         Compte compte = pret.getCompte();
         TypeOperation typeOperation = em.createQuery(
-                        "SELECT tp FROM TypeOperation tp WHERE tp.codeOperation = :code",
-                        TypeOperation.class)
+                "SELECT tp FROM TypeOperation tp WHERE tp.codeOperation = :code",
+                TypeOperation.class)
                 .setParameter("code", "DEBIT")
                 .getSingleResult();
 
@@ -68,9 +70,9 @@ public class ComptePretBean implements ComptePretRemote {
             return 0;
 
         double totalRembourse = em.createQuery(
-                        "SELECT COALESCE(SUM(r.montant),0) FROM Remboursement r " +
-                                "WHERE r.pret.idPret = :idPret AND r.dateRemboursement <= :date",
-                        Double.class)
+                "SELECT COALESCE(SUM(r.montant),0) FROM Remboursement r " +
+                        "WHERE r.pret.idPret = :idPret AND r.dateRemboursement <= :date",
+                Double.class)
                 .setParameter("idPret", idPret)
                 .setParameter("date", date)
                 .getSingleResult();
@@ -85,8 +87,8 @@ public class ComptePretBean implements ComptePretRemote {
             return 0;
 
         List<Remboursement> remboursements = em.createQuery(
-                        "SELECT r FROM Remboursement r WHERE r.pret.idPret = :idPret ORDER BY r.dateRemboursement ASC",
-                        Remboursement.class)
+                "SELECT r FROM Remboursement r WHERE r.pret.idPret = :idPret ORDER BY r.dateRemboursement ASC",
+                Remboursement.class)
                 .setParameter("idPret", idPret)
                 .getResultList();
 
@@ -94,29 +96,43 @@ public class ComptePretBean implements ComptePretRemote {
         double interetsTotaux = 0;
         Date dateCourante = pret.getDatePret();
 
+        TypeCompte typeCompte = pret.getCompte().getTypeCompte();
+
         for (Remboursement r : remboursements) {
-            if (r.getDateRemboursement().after(date)) break;
+            if (r.getDateRemboursement().after(date))
+                break;
 
-            long jours = (r.getDateRemboursement().getTime() - dateCourante.getTime()) / (1000 * 60 * 60 * 24);
-            double taux = obtenirTauxPourDate(pret.getCompte().getTypeCompte().getIdTypeCompte(), dateCourante);
+            long jours = (r.getDateRemboursement().getTime() - dateCourante.getTime()) / (1000L * 60 * 60 * 24);
+            if (jours < 0)
+                jours = 0; // protection contre dates incorrectes
 
-            interetsTotaux += capitalRestant * taux / 100 * (jours / 365.0);
+            double taux = obtenirTauxPourDate(typeCompte, dateCourante);
+
+            interetsTotaux += capitalRestant * (taux / 100) * (jours / 365.0);
+
             capitalRestant -= r.getMontant();
+            if (capitalRestant < 0)
+                capitalRestant = 0; // éviter capital négatif
+
             dateCourante = r.getDateRemboursement();
         }
 
-        long joursRestants = (date.getTime() - dateCourante.getTime()) / (1000 * 60 * 60 * 24);
-        double tauxFinal = obtenirTauxPourDate(pret.getCompte().getTypeCompte().getIdTypeCompte(), dateCourante);
-        interetsTotaux += capitalRestant * tauxFinal / 100 * (joursRestants / 365.0);
+        // Calcul des intérêts restants jusqu'à la date donnée
+        long joursRestants = (date.getTime() - dateCourante.getTime()) / (1000L * 60 * 60 * 24);
+        if (joursRestants < 0)
+            joursRestants = 0;
 
-        return interetsTotaux;
+        double tauxFinal = obtenirTauxPourDate(typeCompte, dateCourante);
+        interetsTotaux += capitalRestant * (tauxFinal / 100) * (joursRestants / 365.0);
+
+        return Math.max(interetsTotaux, 0); // éviter retour négatif
     }
 
-    private double obtenirTauxPourDate(int idTypeCompte, Date date) {
+    private double obtenirTauxPourDate(TypeCompte typeCompte, Date date) {
         List<Taux> tauxList = em.createQuery(
-                        "SELECT t FROM Taux t WHERE t.idTypeCompte = :typeCompte AND t.dateChangementTaux <= :date ORDER BY t.dateChangementTaux DESC",
-                        Taux.class)
-                .setParameter("typeCompte", idTypeCompte)
+                "SELECT t FROM Taux t WHERE t.typeCompte = :typeCompte AND t.dateChangementTaux <= :date ORDER BY t.dateChangementTaux DESC",
+                Taux.class)
+                .setParameter("typeCompte", typeCompte)
                 .setParameter("date", date)
                 .setMaxResults(1)
                 .getResultList();
@@ -139,18 +155,18 @@ public class ComptePretBean implements ComptePretRemote {
     @Override
     public double getSoldeDate(String numeroCompte, Date dateChangement) {
         Compte compte = em.createQuery(
-                        "SELECT c FROM Compte c WHERE c.numeroCompte = :num", Compte.class)
+                "SELECT c FROM Compte c WHERE c.numeroCompte = :num", Compte.class)
                 .setParameter("num", numeroCompte)
                 .getSingleResult();
 
         Integer idCompte = compte.getIdCompte();
 
         List<HistoriqueSolde> historiques = em.createQuery(
-                        "SELECT h FROM HistoriqueSolde h " +
-                                "WHERE h.compte.idCompte = :idCompte " +
-                                "AND h.dateChangement <= :dateChangement " +
-                                "ORDER BY h.dateChangement DESC, h.idHistorique DESC",
-                        HistoriqueSolde.class)
+                "SELECT h FROM HistoriqueSolde h " +
+                        "WHERE h.compte.idCompte = :idCompte " +
+                        "AND h.dateChangement <= :dateChangement " +
+                        "ORDER BY h.dateChangement DESC, h.idHistorique DESC",
+                HistoriqueSolde.class)
                 .setParameter("idCompte", idCompte)
                 .setParameter("dateChangement", dateChangement)
                 .setMaxResults(1)
