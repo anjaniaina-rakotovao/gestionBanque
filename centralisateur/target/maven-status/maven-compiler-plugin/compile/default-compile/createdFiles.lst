@@ -1,4 +1,5 @@
 client\CompteCourantServlet.class
+client\CalculOperationsServlet.class
 client\CompteDepotServlet.class
 client\ConsultSoldeServlet.class
 client\CompteDepotServlet$1.class
