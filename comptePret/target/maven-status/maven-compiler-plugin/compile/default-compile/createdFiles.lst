@@ -1,0 +1,12 @@
+com\pret\entity\Client.class
+com\pret\entity\TypeCompte.class
+com\pret\entity\Pret.class
+com\pret\remote\ComptePretBean.class
+com\pret\entity\Personne.class
+com\pret\entity\Taux.class
+com\pret\remote\ComptePretRemote.class
+com\pret\entity\Operation.class
+com\pret\entity\Compte.class
+com\pret\entity\TypeOperation.class
+com\pret\entity\HistoriqueSolde.class
+com\pret\entity\Remboursement.class

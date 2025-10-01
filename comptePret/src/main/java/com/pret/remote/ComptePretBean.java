@@ -1,0 +1,165 @@
+package com.pret.remote;
+
+import javax.ejb.Stateless;
+import javax.persistence.*;
+import com.pret.entity.*;
+import java.util.Date;
+import java.util.List;
+
+@Stateless(name = "ComptePretBeanUnique")
+public class ComptePretBean implements ComptePretRemote {
+
+    @PersistenceContext(unitName = "BanquePU_pret")
+    private EntityManager em;
+
+    @Override
+    public void fairePretDate(String numeroCompte, double montant, int dureeMois, Date datePret) {
+        Compte compte = em.createQuery(
+                "SELECT c FROM Compte c WHERE c.numeroCompte = :num", Compte.class)
+                .setParameter("num", numeroCompte)
+                .getSingleResult();
+
+        Pret pret = new Pret();
+        pret.setCompte(compte);
+        pret.setMontant(montant);
+        pret.setDatePret(datePret);
+        pret.setDureeMois(dureeMois);
+
+        em.persist(pret);
+
+        TypeOperation typeOperation = em.createQuery(
+                        "SELECT tp FROM TypeOperation tp WHERE tp.codeOperation = :code",
+                        TypeOperation.class)
+                .setParameter("code", "CREDIT")
+                .getSingleResult();
+
+        em.persist(new Operation(null, montant, datePret, compte, typeOperation));
+    }
+
+    @Override
+    public void faireRemboursement(String numeroCompte, int idPret, double montant, Date dateRemboursement) {
+        Pret pret = em.find(Pret.class, idPret);
+        if (pret == null)
+            throw new IllegalArgumentException("Prêt introuvable");
+
+        Remboursement remboursement = new Remboursement();
+        remboursement.setPret(pret);
+        remboursement.setMontant(montant);
+        remboursement.setDateRemboursement(dateRemboursement);
+
+        em.persist(remboursement);
+
+        Compte compte = pret.getCompte();
+        TypeOperation typeOperation = em.createQuery(
+                        "SELECT tp FROM TypeOperation tp WHERE tp.codeOperation = :code",
+                        TypeOperation.class)
+                .setParameter("code", "DEBIT")
+                .getSingleResult();
+
+        double solde = getSoldeDate(numeroCompte, dateRemboursement);
+        em.persist(new HistoriqueSolde(null, compte, solde - montant, dateRemboursement));
+        em.persist(new Operation(null, montant, dateRemboursement, compte, typeOperation));
+    }
+
+    @Override
+    public double obtenirResteCapBrutRembourse(String numeroCompte, int idPret, Date date) {
+        Pret pret = em.find(Pret.class, idPret);
+        if (pret == null)
+            return 0;
+
+        double totalRembourse = em.createQuery(
+                        "SELECT COALESCE(SUM(r.montant),0) FROM Remboursement r " +
+                                "WHERE r.pret.idPret = :idPret AND r.dateRemboursement <= :date",
+                        Double.class)
+                .setParameter("idPret", idPret)
+                .setParameter("date", date)
+                .getSingleResult();
+
+        return Math.max(pret.getMontant() - totalRembourse, 0);
+    }
+
+    @Override
+    public double obtenirResteInteretRembourse(String numeroCompte, int idPret, Date date) {
+        Pret pret = em.find(Pret.class, idPret);
+        if (pret == null)
+            return 0;
+
+        List<Remboursement> remboursements = em.createQuery(
+                        "SELECT r FROM Remboursement r WHERE r.pret.idPret = :idPret ORDER BY r.dateRemboursement ASC",
+                        Remboursement.class)
+                .setParameter("idPret", idPret)
+                .getResultList();
+
+        double capitalRestant = pret.getMontant();
+        double interetsTotaux = 0;
+        Date dateCourante = pret.getDatePret();
+
+        for (Remboursement r : remboursements) {
+            if (r.getDateRemboursement().after(date)) break;
+
+            long jours = (r.getDateRemboursement().getTime() - dateCourante.getTime()) / (1000 * 60 * 60 * 24);
+            double taux = obtenirTauxPourDate(pret.getCompte().getTypeCompte().getIdTypeCompte(), dateCourante);
+
+            interetsTotaux += capitalRestant * taux / 100 * (jours / 365.0);
+            capitalRestant -= r.getMontant();
+            dateCourante = r.getDateRemboursement();
+        }
+
+        long joursRestants = (date.getTime() - dateCourante.getTime()) / (1000 * 60 * 60 * 24);
+        double tauxFinal = obtenirTauxPourDate(pret.getCompte().getTypeCompte().getIdTypeCompte(), dateCourante);
+        interetsTotaux += capitalRestant * tauxFinal / 100 * (joursRestants / 365.0);
+
+        return interetsTotaux;
+    }
+
+    private double obtenirTauxPourDate(int idTypeCompte, Date date) {
+        List<Taux> tauxList = em.createQuery(
+                        "SELECT t FROM Taux t WHERE t.idTypeCompte = :typeCompte AND t.dateChangementTaux <= :date ORDER BY t.dateChangementTaux DESC",
+                        Taux.class)
+                .setParameter("typeCompte", idTypeCompte)
+                .setParameter("date", date)
+                .setMaxResults(1)
+                .getResultList();
+
+        return tauxList.isEmpty() ? 0 : tauxList.get(0).getTaux();
+    }
+
+    @Override
+    public double obtenirResteAPayer(String numeroCompte, int idPret, Date date) {
+        double capitalRestant = obtenirResteCapBrutRembourse(numeroCompte, idPret, date);
+        double interetsRestants = obtenirResteInteretRembourse(numeroCompte, idPret, date);
+        return capitalRestant + interetsRestants;
+    }
+
+    @Override
+    public boolean estRembourse(String numeroCompte, int idPret, Date date) {
+        return obtenirResteAPayer(numeroCompte, idPret, date) <= 0;
+    }
+
+    @Override
+    public double getSoldeDate(String numeroCompte, Date dateChangement) {
+        Compte compte = em.createQuery(
+                        "SELECT c FROM Compte c WHERE c.numeroCompte = :num", Compte.class)
+                .setParameter("num", numeroCompte)
+                .getSingleResult();
+
+        Integer idCompte = compte.getIdCompte();
+
+        List<HistoriqueSolde> historiques = em.createQuery(
+                        "SELECT h FROM HistoriqueSolde h " +
+                                "WHERE h.compte.idCompte = :idCompte " +
+                                "AND h.dateChangement <= :dateChangement " +
+                                "ORDER BY h.dateChangement DESC, h.idHistorique DESC",
+                        HistoriqueSolde.class)
+                .setParameter("idCompte", idCompte)
+                .setParameter("dateChangement", dateChangement)
+                .setMaxResults(1)
+                .getResultList();
+
+        if (historiques.isEmpty()) {
+            return 0.0;
+        } else {
+            return historiques.get(0).getSolde();
+        }
+    }
+}

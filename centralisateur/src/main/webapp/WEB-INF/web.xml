@@ -35,4 +35,13 @@
         <servlet-name>CalculOperationsServlet</servlet-name>
         <url-pattern>/calculOperations</url-pattern>
     </servlet-mapping>
+
+    <servlet>
+        <servlet-name>ComptePretServlet</servlet-name>
+        <servlet-class>client.ComptePretServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ComptePretServlet</servlet-name>
+        <url-pattern>/comptePret</url-pattern>
+    </servlet-mapping>
 </web-app>
