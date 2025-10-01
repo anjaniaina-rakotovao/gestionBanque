@@ -1,0 +1,12 @@
+com\courant\entity\Client.class
+com\courant\entity\HistoriqueSolde.class
+com\courant\entity\Operation.class
+com\courant\entity\TypeOperation.class
+com\courant\entity\Pret.class
+com\courant\entity\Taux.class
+com\courant\entity\TypeCompte.class
+com\courant\entity\Compte.class
+com\courant\entity\Remboursement.class
+com\courant\entity\Personne.class
+com\courant\remote\CompteCourantBean.class
+com\courant\remote\CompteCourantRemote.class
