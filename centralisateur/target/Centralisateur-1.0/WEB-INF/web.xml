@@ -17,4 +17,13 @@
         <servlet-name>ConsultSoldeServlet</servlet-name>
         <url-pattern>/solde</url-pattern>
     </servlet-mapping>
+
+    <servlet>
+        <servlet-name>CompteDepotServlet</servlet-name>
+        <servlet-class>client.CompteDepotServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>CompteDepotServlet</servlet-name>
+        <url-pattern>/depot</url-pattern>
+    </servlet-mapping>
 </web-app>

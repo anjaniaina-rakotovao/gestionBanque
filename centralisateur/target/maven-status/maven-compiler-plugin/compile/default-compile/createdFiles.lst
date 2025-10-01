@@ -1,2 +1,4 @@
-client\ConsultSoldeServlet.class
 client\CompteCourantServlet.class
+client\CompteDepotServlet.class
+client\ConsultSoldeServlet.class
+client\CompteDepotServlet$1.class
