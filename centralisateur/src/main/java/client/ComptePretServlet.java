@@ -1,6 +1,7 @@
 package client;
 
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -66,9 +67,11 @@ public class ComptePretServlet extends HttpServlet {
                 double capitalRestant = remote.obtenirResteCapBrutRembourse(numeroCompte, idPret, dateOperation);
                 double interetRestant = remote.obtenirResteInteretRembourse(numeroCompte, idPret, dateOperation);
 
-                request.setAttribute("reste", reste);
-                request.setAttribute("capitalRestant", capitalRestant);
-                request.setAttribute("interetRestant", interetRestant);
+                DecimalFormat df = new DecimalFormat("#,##0.00");
+
+                request.setAttribute("reste", df.format(reste));
+                request.setAttribute("capitalRestant", df.format(capitalRestant));
+                request.setAttribute("interetRestant", df.format(interetRestant));
                 request.getRequestDispatcher("/WEB-INF/etatPret.jsp").forward(request, response);
                 return;
             }

@@ -1,6 +1,8 @@
+client\ComptePretServlet.class
+client\CompteDepotServlet$1.class
+client\HomeServlet.class
+client\ChoixConsultationSoldeServlet.class
 client\CompteCourantServlet.class
 client\CalculOperationsServlet.class
 client\CompteDepotServlet.class
 client\ConsultSoldeServlet.class
-client\ComptePretServlet.class
-client\CompteDepotServlet$1.class

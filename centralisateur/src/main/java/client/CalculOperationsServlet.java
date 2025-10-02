@@ -6,8 +6,7 @@ import javax.servlet.http.*;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.text.DecimalFormat;
 
 public class CalculOperationsServlet extends HttpServlet {
 
@@ -29,30 +28,51 @@ public class CalculOperationsServlet extends HttpServlet {
         try {
             String apiUrl = "http://localhost:5010/api/CompteDepot/";
             String result = "";
+            String typeLabel = "";
 
-            if ("SoldeAvecInterets".equals(typeCalcul)) {
-                apiUrl += "SoldeAvecInterets?numeroCompte=" + numeroCompte + "&date=" + dateStr;
-                result = getApiResult(apiUrl);
-
-            } else if ("Interets".equals(typeCalcul)) {
-                apiUrl += "Interets?numeroCompte=" + numeroCompte + "&date=" + dateStr;
-                result = getApiResult(apiUrl);
-
-            } else if ("CalculInterets".equals(typeCalcul)) {
-                apiUrl += "CalculInterets?numeroCompte=" + numeroCompte + "&dateDebut=" + dateDebutStr + "&dateFin="
-                        + dateFinStr;
-                result = getApiResult(apiUrl);
+            switch (typeCalcul) {
+                case "solde":
+                    apiUrl += "Solde?numeroCompte=" + numeroCompte + "&date=" + dateStr;
+                    typeLabel = "Solde";
+                    break;
+                case "SoldeAvecInterets":
+                    apiUrl += "SoldeAvecInterets?numeroCompte=" + numeroCompte + "&date=" + dateStr;
+                    typeLabel = "Solde avec intérêts";
+                    break;
+                case "Interets":
+                    apiUrl += "Interets?numeroCompte=" + numeroCompte + "&date=" + dateStr;
+                    typeLabel = "Intérêts accumulés";
+                    break;
+                case "CalculInterets":
+                    apiUrl += "CalculInterets?numeroCompte=" + numeroCompte + "&dateDebut=" + dateDebutStr + "&dateFin="
+                            + dateFinStr;
+                    typeLabel = "Intérêts sur période";
+                    break;
+                default:
+                    throw new IllegalArgumentException("Type de calcul invalide");
             }
 
-            request.setAttribute("resultat", result);
-            request.getRequestDispatcher("/WEB-INF/calculOperations.jsp").forward(request, response);
+            result = getApiResult(apiUrl);
 
+            String resultatFormate = result;
+            try {
+                double valeur = Double.parseDouble(result);
+                DecimalFormat df = new DecimalFormat("#,##0.00"); // format bancaire
+                resultatFormate = df.format(valeur);
+            } catch (NumberFormatException e) {
+                // ce n’est pas un nombre => on laisse brut
+            }
+
+            request.setAttribute("resultat", resultatFormate);
+            request.setAttribute("typeLabel", typeLabel);
+            request.setAttribute("numeroCompte", numeroCompte);
+            request.setAttribute("typeCalcul", typeCalcul);
+            request.getRequestDispatcher("/WEB-INF/calculOperations.jsp").forward(request, response);
 
         } catch (Exception e) {
             e.printStackTrace();
-            request.setAttribute("resultat", "Erreur : " + e.getMessage());
+            request.setAttribute("erreur", "Erreur lors du calcul : " + e.getMessage());
             request.getRequestDispatcher("/WEB-INF/calculOperations.jsp").forward(request, response);
-
         }
     }
 

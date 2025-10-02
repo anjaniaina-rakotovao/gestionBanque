@@ -60,6 +60,21 @@ namespace CompteDepot.Controllers
         }
 
         // GET: api/CompteDepot/SoldeAvecInterets
+        [HttpGet("Solde")]
+        public async Task<ActionResult<decimal>> SoldeDate(string numeroCompte, DateTime date)
+        {
+            try
+            {
+                var solde = await _compteDepotService.SoldeDate(numeroCompte, date);
+                return Ok(solde);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        // GET: api/CompteDepot/SoldeAvecInterets
         [HttpGet("SoldeAvecInterets")]
         public async Task<ActionResult<decimal>> SoldeDateAvecInterets(string numeroCompte, DateTime date)
         {
