@@ -20,4 +20,6 @@ public interface ComptePretRemote {
     boolean estRembourse(String numeroCompte, int idPret, Date date);
 
     double getSoldeDate(String numeroCompte, Date dateChangement);
+
+    List<String> getNumCompteClient(String numeroClient);
 }

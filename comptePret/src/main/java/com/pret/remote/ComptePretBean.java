@@ -3,8 +3,9 @@ package com.pret.remote;
 import javax.ejb.Stateless;
 import javax.persistence.*;
 
-import com.pret.entity.TypeCompte;
 import com.pret.entity.*;
+
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -13,6 +14,42 @@ public class ComptePretBean implements ComptePretRemote {
 
     @PersistenceContext(unitName = "BanquePU_pret")
     private EntityManager em;
+
+    @Override
+    public List<String> getNumCompteClient(String numeroClient) {
+        List<Compte> lc = em.createQuery(
+                "SELECT lc FROM Compte lc " +
+                        "WHERE lc.client.numeroClient = :numeroClient " +
+                        "AND (lc.typeCompte.codeType = 'COURANT' OR lc.typeCompte.codeType = 'PRET')",
+                Compte.class)
+                .setParameter("numeroClient", numeroClient)
+                .getResultList();
+
+        List<String> numCompteClient = new ArrayList<>();
+        for (Compte compte : lc) {
+            numCompteClient.add(compte.getNumeroCompte());
+        }
+        return numCompteClient;
+    }
+
+  
+    public Compte getCompteCourante(String numeroComptePret) {
+        Compte comptePret = em.createQuery(
+                "SELECT c FROM Compte c WHERE c.numeroCompte = :numeroComptePret",
+                Compte.class)
+                .setParameter("numeroComptePret", numeroComptePret)
+                .getSingleResult();
+
+        Compte compteCourant = em.createQuery(
+                "SELECT c FROM Compte c WHERE c.client.idClient = :idClient " +
+                        "AND c.typeCompte.codeType = :codeTypeCourant",
+                Compte.class)
+                .setParameter("idClient", comptePret.getClient().getIdClient())
+                .setParameter("codeTypeCourant", "COURANT")
+                .getSingleResult();
+
+        return compteCourant;
+    }
 
     @Override
     public void fairePretDate(String numeroCompte, double montant, int dureeMois, Date datePret) {
@@ -34,6 +71,13 @@ public class ComptePretBean implements ComptePretRemote {
                 TypeOperation.class)
                 .setParameter("code", "CREDIT")
                 .getSingleResult();
+
+
+        Compte compteCourante = getCompteCourante(numeroCompte);
+
+        double solde = getSoldeDate(compteCourante.getNumeroCompte(), datePret);
+        em.persist(new HistoriqueSolde(null, compteCourante, solde + montant, datePret));
+
 
         em.persist(new Operation(null, montant, datePret, compte, typeOperation));
     }
@@ -58,8 +102,10 @@ public class ComptePretBean implements ComptePretRemote {
                 .setParameter("code", "DEBIT")
                 .getSingleResult();
 
-        double solde = getSoldeDate(numeroCompte, dateRemboursement);
-        em.persist(new HistoriqueSolde(null, compte, solde - montant, dateRemboursement));
+        Compte compteCourante = getCompteCourante(numeroCompte);
+
+        double solde = getSoldeDate(compteCourante.getNumeroCompte(), dateRemboursement);
+        em.persist(new HistoriqueSolde(null, compteCourante, solde - montant, dateRemboursement));
         em.persist(new Operation(null, montant, dateRemboursement, compte, typeOperation));
     }
 
@@ -104,7 +150,7 @@ public class ComptePretBean implements ComptePretRemote {
 
             long jours = (r.getDateRemboursement().getTime() - dateCourante.getTime()) / (1000L * 60 * 60 * 24);
             if (jours < 0)
-                jours = 0; // protection contre dates incorrectes
+                jours = 0;
 
             double taux = obtenirTauxPourDate(typeCompte, dateCourante);
 
@@ -117,7 +163,6 @@ public class ComptePretBean implements ComptePretRemote {
             dateCourante = r.getDateRemboursement();
         }
 
-        // Calcul des intérêts restants jusqu'à la date donnée
         long joursRestants = (date.getTime() - dateCourante.getTime()) / (1000L * 60 * 60 * 24);
         if (joursRestants < 0)
             joursRestants = 0;
@@ -125,7 +170,7 @@ public class ComptePretBean implements ComptePretRemote {
         double tauxFinal = obtenirTauxPourDate(typeCompte, dateCourante);
         interetsTotaux += capitalRestant * (tauxFinal / 100) * (joursRestants / 365.0);
 
-        return Math.max(interetsTotaux, 0); // éviter retour négatif
+        return Math.max(interetsTotaux, 0);
     }
 
     private double obtenirTauxPourDate(TypeCompte typeCompte, Date date) {
